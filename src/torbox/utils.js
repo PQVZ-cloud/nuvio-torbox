@@ -42,7 +42,9 @@ export function parseFormat(name) {
 // Torrentio titles look like:
 //   "Oppenheimer 2023 2160p BluRay\n👤 48 👤 8.71 GB 👤 YTS"
 // Split on emoji markers, then parse stats from the trailing parts.
-const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]+/u;
+// Hermes-safe emoji matcher (NO \u{...} / u-flag — those throw SyntaxError in Hermes).
+// Astral emoji are matched as surrogate pairs; common BMP symbols/ZWJ/VS16 covered too.
+const EMOJI_RE = /[\u2600-\u27BF\uFE0F\u200D]|[\uD83C-\uDBFF][\uDC00-\uDFFF]+/g;
 
 export function parseTorrentioTitle(title) {
   let seeders = 0;
