@@ -1,70 +1,16 @@
 /**
  * torbox - Built from src/torbox/
- * Generated: 2026-08-16T18:24:24.355Z
+ * Generated: 2026-08-16T19:02:08.260Z
  */
 
 // src/torbox/utils.js
 function sleep(ms) {
-  return new Promise(function(resolve) {
-    setTimeout(resolve, ms);
-  });
+  const target = Date.now() + (ms || 0);
+  while (Date.now() < target) {
+  }
 }
-function fetchWithTimeout(url, options, timeoutMs) {
-  const hasAbort = typeof AbortController !== "undefined";
-  const controller = hasAbort ? new AbortController() : null;
-  const opts = options || {};
-  if (controller) opts.signal = controller.signal;
-  return new Promise(function(resolve, reject) {
-    let settled = false;
-    const timer = setTimeout(function() {
-      if (controller) controller.abort();
-      if (!settled) {
-        settled = true;
-        reject(new Error("timeout"));
-      }
-    }, timeoutMs || 15e3);
-    fetch(url, opts).then(function(res) {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        resolve(res);
-      }
-    }).catch(function(err) {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        reject(err);
-      }
-    });
-  });
-}
-function withTimeout(promise, ms, label) {
-  return new Promise(function(resolve) {
-    let done = false;
-    const timer = setTimeout(function() {
-      if (!done) {
-        done = true;
-        console.error("[torbox] " + (label || "op") + " timed out after " + ms + "ms");
-        resolve([]);
-      }
-    }, ms);
-    promise.then(
-      function(v) {
-        if (!done) {
-          done = true;
-          clearTimeout(timer);
-          resolve(v);
-        }
-      },
-      function() {
-        if (!done) {
-          done = true;
-          clearTimeout(timer);
-          resolve([]);
-        }
-      }
-    );
-  });
+function fetchWithTimeout(url, options) {
+  return fetch(url, options || {});
 }
 var QUALITY_PATTERNS = [
   { re: /2160p|4k|uhd|2160/i, quality: 2160 },
@@ -372,7 +318,8 @@ function waitForFiles(torrentId, maxTries, pollMs, apiKey) {
       if (!tor) return null;
       if (tor.files && tor.files.length) return tor;
       if (attempt >= tries) return null;
-      return sleep(interval).then(poll);
+      sleep(interval);
+      return poll();
     });
   }
   return poll();
@@ -564,6 +511,6 @@ function getStreams(tmdbId, mediaType, season, episode) {
     console.error("[torbox] getStreams error:", err && err.message ? err.message : err);
     return [];
   });
-  return withTimeout(work, 25e3, "getStreams");
+  return work;
 }
 module.exports = { getStreams, onSettings };
