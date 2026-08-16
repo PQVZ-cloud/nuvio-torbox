@@ -79,7 +79,7 @@ $files = @(
 $repoCheck = Invoke-RestMethod -Method Get -Uri "https://api.github.com/repos/$Owner/$Repo" -Headers $headers -TimeoutSec 30
 Write-Host "Repo found: $($repoCheck.full_name) (default branch: $($repoCheck.default_branch))" -ForegroundColor Green
 
-# ---------- 4. Upload files (initial commit) ----------
+# ---------- 4. Upload files (create or update) ----------
 Write-Host "`n== Uploading ==" -ForegroundColor Cyan
 $branch = $repoCheck.default_branch
 foreach ($f in $files) {
@@ -89,13 +89,22 @@ foreach ($f in $files) {
   }
   $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $f))
   $b64 = [System.Convert]::ToBase64String($bytes)
-  $body = @{
-    message = "Add $f"
+  $apiPath = $f -replace '\\', '/'
+  $payload = @{
+    message = "Update $f"
     content = $b64
     branch  = $branch
-  } | ConvertTo-Json -Compress
+  }
   try {
-    Invoke-RestMethod -Method Put -Uri "https://api.github.com/repos/$Owner/$Repo/contents/$($f -replace '\\', '/')" -Headers $headers -Body $body -ContentType "application/json" -TimeoutSec 60 | Out-Null
+    $existing = Invoke-RestMethod -Method Get -Uri "https://api.github.com/repos/$Owner/$Repo/contents/$apiPath" -Headers $headers -TimeoutSec 30
+    $payload.sha = $existing.sha
+    $payload.message = "Update $f"
+  } catch {
+    $payload.message = "Add $f"
+  }
+  $body = $payload | ConvertTo-Json -Compress
+  try {
+    Invoke-RestMethod -Method Put -Uri "https://api.github.com/repos/$Owner/$Repo/contents/$apiPath" -Headers $headers -Body $body -ContentType "application/json" -TimeoutSec 60 | Out-Null
     Write-Host "OK: $f" -ForegroundColor Green
   } catch {
     Write-Host "FAIL: $f - $($_.Exception.Message)" -ForegroundColor Red
