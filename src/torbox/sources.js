@@ -5,6 +5,7 @@ import {
   matchEpisode,
   fetchWithTimeout
 } from './utils.js';
+import { searchDmmSources } from './dmm.js';
 
 const TORRENTIO_BASE = 'https://torrentio.strem.fun';
 
@@ -21,6 +22,9 @@ export function searchHashSources(tmdbId, mediaType, season, episode, imdbId) {
   if (imdbId) {
     calls.push(searchTorrentio(mediaType, imdbId, season, episode, 'imdb'));
   }
+
+  // 3) DMM scraped torrent index by IMDb id (trusted torrents, cached results)
+  calls.push(searchDmmSources(mediaType, imdbId, season, episode));
 
   return Promise.all(calls).then(function (results) {
     let merged = [];
