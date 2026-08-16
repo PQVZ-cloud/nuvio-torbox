@@ -4,6 +4,72 @@ export function sleep(ms) {
   });
 }
 
+// Hermes-safe fetch with an abort-based timeout.
+// Without this, a hung request (slow/blocked network) would stall getStreams forever.
+export function fetchWithTimeout(url, options, timeoutMs) {
+  const hasAbort = typeof AbortController !== 'undefined';
+  const controller = hasAbort ? new AbortController() : null;
+  const opts = options || {};
+  if (controller) opts.signal = controller.signal;
+
+  return new Promise(function (resolve, reject) {
+    let settled = false;
+    const timer = setTimeout(function () {
+      if (controller) controller.abort();
+      if (!settled) {
+        settled = true;
+        reject(new Error('timeout'));
+      }
+    }, timeoutMs || 15000);
+
+    fetch(url, opts)
+      .then(function (res) {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(res);
+        }
+      })
+      .catch(function (err) {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(err);
+        }
+      });
+  });
+}
+
+// Bounds a promise to a maximum duration (overall safety net for getStreams).
+export function withTimeout(promise, ms, label) {
+  return new Promise(function (resolve) {
+    let done = false;
+    const timer = setTimeout(function () {
+      if (!done) {
+        done = true;
+        console.error('[torbox] ' + (label || 'op') + ' timed out after ' + ms + 'ms');
+        resolve([]);
+      }
+    }, ms);
+    promise.then(
+      function (v) {
+        if (!done) {
+          done = true;
+          clearTimeout(timer);
+          resolve(v);
+        }
+      },
+      function () {
+        if (!done) {
+          done = true;
+          clearTimeout(timer);
+          resolve([]);
+        }
+      }
+    );
+  });
+}
+
 const QUALITY_PATTERNS = [
   { re: /2160p|4k|uhd|2160/i, quality: 2160 },
   { re: /1080p|fhd|fullhd/i, quality: 1080 },
