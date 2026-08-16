@@ -1,65 +1,69 @@
 /**
  * torbox - Built from src/torbox/
- * Generated: 2026-08-16T17:57:41.070Z
+ * Generated: 2026-08-16T18:02:29.177Z
  */
-
-// src/torbox/mapping.js
-var cache = {};
-function isUsable(key) {
-  return key && key.indexOf("YOUR_") !== 0 && key.indexOf("PASTE_") !== 0 && key.indexOf("ENTER") === -1;
-}
-function fromTmdbApi(tmdbId, mediaType, tmdbApiKey) {
-  const type = mediaType === "tv" ? "tv" : "movie";
-  const url = "https://api.themoviedb.org/3/" + type + "/" + tmdbId + "/external_ids?api_key=" + tmdbApiKey;
-  return fetch(url).then(function(res) {
-    if (!res.ok) return null;
-    return res.json();
-  }).then(function(data) {
-    if (!data || !data.imdb_id) return "";
-    return data.imdb_id;
-  }).catch(function() {
-    return "";
-  });
-}
-function fromWikidata(tmdbId, mediaType) {
-  let where;
-  if (mediaType === "tv") {
-    where = '?item wdt:P4947 "' + tmdbId + '" . ?item wdt:P31 ?type . VALUES ?type { wd:Q5398426 wd:Q15416 wd:Q1259759 wd:Q581714 } . ?item wdt:P345 ?imdb .';
-  } else {
-    where = '?item wdt:P4947 "' + tmdbId + '" . ?item wdt:P31 wd:Q11424 . ?item wdt:P345 ?imdb .';
-  }
-  const query = "SELECT ?imdb WHERE { " + where + " } LIMIT 1";
-  const url = "https://query.wikidata.org/sparql?format=json&query=" + encodeURIComponent(query);
-  return fetch(url, { headers: { "User-Agent": "Nuvio-TorBox/1.0" } }).then(function(res) {
-    if (!res.ok) return "";
-    return res.json();
-  }).then(function(data) {
-    const b = data && data.results && data.results.bindings;
-    if (!b || !b.length || !b[0].imdb) return "";
-    return b[0].imdb.value;
-  }).catch(function() {
-    return "";
-  });
-}
-function tmdbToImdb(tmdbId, mediaType, tmdbApiKey) {
-  const key = tmdbId + ":" + mediaType;
-  if (key in cache) return Promise.resolve(cache[key]);
-  if (isUsable(tmdbApiKey)) {
-    return fromTmdbApi(tmdbId, mediaType, tmdbApiKey).then(function(imdb) {
-      cache[key] = imdb;
-      return imdb;
-    });
-  }
-  return fromWikidata(tmdbId, mediaType).then(function(imdb) {
-    cache[key] = imdb;
-    return imdb;
-  });
-}
 
 // src/torbox/utils.js
 function sleep(ms) {
   return new Promise(function(resolve) {
     setTimeout(resolve, ms);
+  });
+}
+function fetchWithTimeout(url, options, timeoutMs) {
+  const hasAbort = typeof AbortController !== "undefined";
+  const controller = hasAbort ? new AbortController() : null;
+  const opts = options || {};
+  if (controller) opts.signal = controller.signal;
+  return new Promise(function(resolve, reject) {
+    let settled = false;
+    const timer = setTimeout(function() {
+      if (controller) controller.abort();
+      if (!settled) {
+        settled = true;
+        reject(new Error("timeout"));
+      }
+    }, timeoutMs || 15e3);
+    fetch(url, opts).then(function(res) {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(res);
+      }
+    }).catch(function(err) {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        reject(err);
+      }
+    });
+  });
+}
+function withTimeout(promise, ms, label) {
+  return new Promise(function(resolve) {
+    let done = false;
+    const timer = setTimeout(function() {
+      if (!done) {
+        done = true;
+        console.error("[torbox] " + (label || "op") + " timed out after " + ms + "ms");
+        resolve([]);
+      }
+    }, ms);
+    promise.then(
+      function(v) {
+        if (!done) {
+          done = true;
+          clearTimeout(timer);
+          resolve(v);
+        }
+      },
+      function() {
+        if (!done) {
+          done = true;
+          clearTimeout(timer);
+          resolve([]);
+        }
+      }
+    );
   });
 }
 var QUALITY_PATTERNS = [
@@ -129,6 +133,59 @@ function matchEpisode(name, season, episode) {
   return hasAnyEp ? false : null;
 }
 
+// src/torbox/mapping.js
+var cache = {};
+function isUsable(key) {
+  return key && key.indexOf("YOUR_") !== 0 && key.indexOf("PASTE_") !== 0 && key.indexOf("ENTER") === -1;
+}
+function fromTmdbApi(tmdbId, mediaType, tmdbApiKey) {
+  const type = mediaType === "tv" ? "tv" : "movie";
+  const url = "https://api.themoviedb.org/3/" + type + "/" + tmdbId + "/external_ids?api_key=" + tmdbApiKey;
+  return fetchWithTimeout(url, null, 8e3).then(function(res) {
+    if (!res.ok) return null;
+    return res.json();
+  }).then(function(data) {
+    if (!data || !data.imdb_id) return "";
+    return data.imdb_id;
+  }).catch(function() {
+    return "";
+  });
+}
+function fromWikidata(tmdbId, mediaType) {
+  let where;
+  if (mediaType === "tv") {
+    where = '?item wdt:P4947 "' + tmdbId + '" . ?item wdt:P31 ?type . VALUES ?type { wd:Q5398426 wd:Q15416 wd:Q1259759 wd:Q581714 } . ?item wdt:P345 ?imdb .';
+  } else {
+    where = '?item wdt:P4947 "' + tmdbId + '" . ?item wdt:P31 wd:Q11424 . ?item wdt:P345 ?imdb .';
+  }
+  const query = "SELECT ?imdb WHERE { " + where + " } LIMIT 1";
+  const url = "https://query.wikidata.org/sparql?format=json&query=" + encodeURIComponent(query);
+  return fetchWithTimeout(url, { headers: { "User-Agent": "Nuvio-TorBox/1.0" } }, 8e3).then(function(res) {
+    if (!res.ok) return "";
+    return res.json();
+  }).then(function(data) {
+    const b = data && data.results && data.results.bindings;
+    if (!b || !b.length || !b[0].imdb) return "";
+    return b[0].imdb.value;
+  }).catch(function() {
+    return "";
+  });
+}
+function tmdbToImdb(tmdbId, mediaType, tmdbApiKey) {
+  const key = tmdbId + ":" + mediaType;
+  if (key in cache) return Promise.resolve(cache[key]);
+  if (isUsable(tmdbApiKey)) {
+    return fromTmdbApi(tmdbId, mediaType, tmdbApiKey).then(function(imdb) {
+      cache[key] = imdb;
+      return imdb;
+    });
+  }
+  return fromWikidata(tmdbId, mediaType).then(function(imdb) {
+    cache[key] = imdb;
+    return imdb;
+  });
+}
+
 // src/torbox/sources.js
 var TORRENTIO_BASE = "https://torrentio.strem.fun";
 function searchHashSources(tmdbId, mediaType, season, episode, imdbId) {
@@ -148,7 +205,7 @@ function searchHashSources(tmdbId, mediaType, season, episode, imdbId) {
 function searchTorrentio(mediaType, id, season, episode, idType) {
   const path = mediaType === "tv" ? "series/" + id + ":" + season + ":" + episode : "movie/" + id;
   const url = TORRENTIO_BASE + "/stream/" + path + ".json";
-  return fetch(url).then(function(res) {
+  return fetchWithTimeout(url, null, 12e3).then(function(res) {
     if (!res.ok) return [];
     return res.json();
   }).then(function(data) {
@@ -197,11 +254,11 @@ function apiHeaders(apiKey, extra) {
 }
 function createTorrent(hash, apiKey) {
   const body = "magnet=" + encodeURIComponent("magnet:?xt=urn:btih:" + hash) + "&add_only_if_cached=true";
-  return fetch(API_BASE + "/torrents/createtorrent", {
+  return fetchWithTimeout(API_BASE + "/torrents/createtorrent", {
     method: "POST",
     headers: apiHeaders(apiKey, { "Content-Type": "application/x-www-form-urlencoded" }),
     body
-  }).then(function(res) {
+  }, 15e3).then(function(res) {
     return res.json();
   }).then(function(data) {
     if (!data || !data.success || !data.data || !data.data.torrent_id) return null;
@@ -209,9 +266,9 @@ function createTorrent(hash, apiKey) {
   });
 }
 function getTorrent(torrentId, apiKey) {
-  return fetch(API_BASE + "/torrents/mylist?id=" + torrentId + "&bypass_cache=true", {
+  return fetchWithTimeout(API_BASE + "/torrents/mylist?id=" + torrentId + "&bypass_cache=true", {
     headers: apiHeaders(apiKey)
-  }).then(function(res) {
+  }, 1e4).then(function(res) {
     return res.json();
   }).then(function(data) {
     if (!data || !data.success || !data.data) return null;
@@ -385,7 +442,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
     console.error("[torbox] no TorBox API key: set it in provider settings");
     return Promise.resolve([]);
   }
-  return tmdbToImdb(tmdbId, mediaType, keys.tmdb).then(function(imdbId) {
+  const work = tmdbToImdb(tmdbId, mediaType, keys.tmdb).then(function(imdbId) {
     return searchHashSources(tmdbId, mediaType, season, episode, imdbId);
   }).then(function(candidates) {
     if (!candidates.length) return [];
@@ -417,5 +474,6 @@ function getStreams(tmdbId, mediaType, season, episode) {
     console.error("[torbox] getStreams error:", err && err.message ? err.message : err);
     return [];
   });
+  return withTimeout(work, 25e3, "getStreams");
 }
 module.exports = { getStreams, onSettings };
