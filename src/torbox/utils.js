@@ -1,73 +1,16 @@
+// The Nuvio QuickJS sandbox provides NO timers (no setTimeout/setInterval),
+// so delays must be busy-waits. The host HTTP client enforces its own
+// 60s timeouts, so this is only used between short status polls.
 export function sleep(ms) {
-  return new Promise(function (resolve) {
-    setTimeout(resolve, ms);
-  });
+  const target = Date.now() + (ms || 0);
+  while (Date.now() < target) {}
 }
 
-// Hermes-safe fetch with an abort-based timeout.
-// Without this, a hung request (slow/blocked network) would stall getStreams forever.
-export function fetchWithTimeout(url, options, timeoutMs) {
-  const hasAbort = typeof AbortController !== 'undefined';
-  const controller = hasAbort ? new AbortController() : null;
-  const opts = options || {};
-  if (controller) opts.signal = controller.signal;
-
-  return new Promise(function (resolve, reject) {
-    let settled = false;
-    const timer = setTimeout(function () {
-      if (controller) controller.abort();
-      if (!settled) {
-        settled = true;
-        reject(new Error('timeout'));
-      }
-    }, timeoutMs || 15000);
-
-    fetch(url, opts)
-      .then(function (res) {
-        if (!settled) {
-          settled = true;
-          clearTimeout(timer);
-          resolve(res);
-        }
-      })
-      .catch(function (err) {
-        if (!settled) {
-          settled = true;
-          clearTimeout(timer);
-          reject(err);
-        }
-      });
-  });
-}
-
-// Bounds a promise to a maximum duration (overall safety net for getStreams).
-export function withTimeout(promise, ms, label) {
-  return new Promise(function (resolve) {
-    let done = false;
-    const timer = setTimeout(function () {
-      if (!done) {
-        done = true;
-        console.error('[torbox] ' + (label || 'op') + ' timed out after ' + ms + 'ms');
-        resolve([]);
-      }
-    }, ms);
-    promise.then(
-      function (v) {
-        if (!done) {
-          done = true;
-          clearTimeout(timer);
-          resolve(v);
-        }
-      },
-      function () {
-        if (!done) {
-          done = true;
-          clearTimeout(timer);
-          resolve([]);
-        }
-      }
-    );
-  });
+// Plain fetch passthrough. Timeout handling is left to the host:
+// Nuvio's OkHttp client uses 60s connect/read/write timeouts and the app
+// cancels the whole plugin run at 60s.
+export function fetchWithTimeout(url, options) {
+  return fetch(url, options || {});
 }
 
 const QUALITY_PATTERNS = [
