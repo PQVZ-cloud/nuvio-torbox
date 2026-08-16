@@ -1,0 +1,29 @@
+[
+  {
+    "id": "torbox",
+    "name": "TorBox Debrid",
+    "description": "TorBox (cached only) - multi-source torrent hashes resolved through TorBox with direct permalink streams. Requires a TorBox paid plan API key.",
+    "version": "1.0.0",
+    "author": "Zyad",
+    "supportedTypes": [
+      "movie",
+      "tv"
+    ],
+    "filename": "providers/torbox.js",
+    "enabled": true,
+    "hasSettings": true,
+    "logo": "https://torbox.app/android-chrome-512x512.png",
+    "contentLanguage": [
+      "ar",
+      "en"
+    ],
+    "formats": [
+      "mp4",
+      "mkv",
+      "webm"
+    ],
+    "limited": false,
+    "disabledPlatforms": [],
+    "supportsExternalPlayer": true
+  }
+]
