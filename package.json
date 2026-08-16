@@ -1,0 +1,15 @@
+{
+  "name": "nuvio-torbox",
+  "version": "1.0.0",
+  "description": "TorBox debrid provider for the Nuvio app (cached-only, permalink streams)",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "build:min": "node build.js --minify",
+    "start": "node server.js",
+    "test": "node test/test.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}
