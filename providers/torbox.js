@@ -1,6 +1,6 @@
 /**
  * torbox - Built from src/torbox/
- * Generated: 2026-08-16T18:02:29.177Z
+ * Generated: 2026-08-16T18:24:24.355Z
  */
 
 // src/torbox/utils.js
@@ -186,6 +186,92 @@ function tmdbToImdb(tmdbId, mediaType, tmdbApiKey) {
   });
 }
 
+// src/torbox/dmm.js
+var DMM_BASE = "https://debridmediamanager.com/api/torrents";
+var DMM_TIME_URL = "https://api.real-debrid.com/rest/1.0/time/iso";
+var DMM_SALT = "debridmediamanager.com%%fe7#td00rA3vHz%VmI";
+function dmmHash(str) {
+  let hash1 = 3735928559 ^ str.length | 0;
+  let hash2 = 1103547991 ^ str.length | 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    hash1 = Math.imul(hash1 ^ c, 2654435761);
+    hash2 = Math.imul(hash2 ^ c, 1597334677);
+    hash1 = hash1 << 5 | hash1 >>> 27;
+    hash2 = hash2 << 5 | hash2 >>> 27;
+  }
+  hash1 = hash1 + Math.imul(hash2, 1566083941) | 0;
+  hash2 = hash2 + Math.imul(hash1, 2024237689) | 0;
+  return ((hash1 ^ hash2) >>> 0).toString(16);
+}
+function combineHashes(h1, h2) {
+  const hl = Math.floor(h1.length / 2);
+  const f1 = h1.slice(0, hl);
+  const s1 = h1.slice(hl);
+  const f2 = h2.slice(0, hl);
+  const s2 = h2.slice(hl);
+  let out = "";
+  for (let i = 0; i < hl; i++) out += f1[i] + f2[i];
+  out += s2.split("").reverse().join("") + s1.split("").reverse().join("");
+  return out;
+}
+function buildAuth(ts) {
+  const token = Math.floor(Math.random() * 4294967295).toString(16);
+  const tw = token + "-" + ts;
+  const sol = combineHashes(dmmHash(tw), dmmHash(DMM_SALT + "-" + token));
+  return { tw, sol };
+}
+function getAuth() {
+  return fetchWithTimeout(DMM_TIME_URL, null, 8e3).then(function(res) {
+    return res && res.ok ? res.text() : null;
+  }).then(function(text) {
+    let ts = Math.floor(Date.now() / 1e3);
+    if (text) {
+      const t = new Date(text.trim()).getTime();
+      if (!isNaN(t)) ts = Math.floor(t / 1e3);
+    }
+    return buildAuth(ts);
+  }).catch(function() {
+    return buildAuth(Math.floor(Date.now() / 1e3));
+  });
+}
+function searchDmmSources(mediaType, imdbId, season, episode) {
+  if (!imdbId) return Promise.resolve([]);
+  const q = mediaType === "tv" ? "imdbId=" + imdbId + "&seasonNum=" + (season || 1) + "&episodeNum=" + (episode || 1) : "imdbId=" + imdbId;
+  return getAuth().then(function(auth) {
+    const url = DMM_BASE + "/" + mediaType + "?" + q + "&dmmProblemKey=" + encodeURIComponent(auth.tw) + "&solution=" + auth.sol + "&onlyTrusted=true&maxSize=0&page=0";
+    return fetchWithTimeout(url, null, 12e3);
+  }).then(function(res) {
+    if (res && res.status === 429) {
+      console.error("[torbox] DMM rate limited, skipping");
+      return [];
+    }
+    if (!res || !res.ok) return [];
+    return res.json();
+  }).then(function(data) {
+    if (!data || !data.results) return [];
+    const out = [];
+    for (let i = 0; i < data.results.length; i++) {
+      const r = data.results[i];
+      if (!r || !r.hash) continue;
+      const title = r.title || "";
+      out.push({
+        hash: r.hash.toLowerCase(),
+        filename: title,
+        quality: parseQuality(title),
+        format: parseFormat(title),
+        sizeBytes: r.fileSize ? Math.round(r.fileSize * 1024 * 1024) : 0,
+        seeders: 0,
+        source: "DMM"
+      });
+    }
+    return out;
+  }).catch(function(err) {
+    console.error("[torbox] DMM error:", err && err.message ? err.message : err);
+    return [];
+  });
+}
+
 // src/torbox/sources.js
 var TORRENTIO_BASE = "https://torrentio.strem.fun";
 function searchHashSources(tmdbId, mediaType, season, episode, imdbId) {
@@ -194,6 +280,7 @@ function searchHashSources(tmdbId, mediaType, season, episode, imdbId) {
   if (imdbId) {
     calls.push(searchTorrentio(mediaType, imdbId, season, episode, "imdb"));
   }
+  calls.push(searchDmmSources(mediaType, imdbId, season, episode));
   return Promise.all(calls).then(function(results) {
     let merged = [];
     for (let i = 0; i < results.length; i++) {
@@ -334,7 +421,7 @@ function pickVideoFile(tor, mediaType, season, episode, hintName) {
 }
 
 // src/torbox/index.js
-var MAX_CANDIDATES = 4;
+var MAX_CANDIDATES = 8;
 var FILE_POLL_MS = 1e3;
 var FILE_MAX_TRIES = 4;
 function getSettings() {
@@ -407,6 +494,9 @@ function onSettings() {
   ];
 }
 function sortCandidates(a, b) {
+  const qa = a.quality || 0;
+  const qb = b.quality || 0;
+  if (qb !== qa) return qb - qa;
   if (b.seeders !== a.seeders) return b.seeders - a.seeders;
   return (b.sizeBytes || 0) - (a.sizeBytes || 0);
 }
