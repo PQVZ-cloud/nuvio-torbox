@@ -184,9 +184,4 @@ function getStreams(tmdbId, mediaType, season, episode) {
     });
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { getStreams, onSettings };
-} else {
-  global.getStreams = getStreams;
-  global.onSettings = onSettings;
-}
+module.exports = { getStreams, onSettings };
