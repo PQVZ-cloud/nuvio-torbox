@@ -2,7 +2,8 @@ import {
   parseQuality,
   parseFormat,
   parseTorrentioTitle,
-  matchEpisode
+  matchEpisode,
+  fetchWithTimeout
 } from './utils.js';
 
 const TORRENTIO_BASE = 'https://torrentio.strem.fun';
@@ -37,7 +38,7 @@ function searchTorrentio(mediaType, id, season, episode, idType) {
       : 'movie/' + id;
   const url = TORRENTIO_BASE + '/stream/' + path + '.json';
 
-  return fetch(url)
+  return fetchWithTimeout(url, null, 12000)
     .then(function (res) {
       if (!res.ok) return [];
       return res.json();
