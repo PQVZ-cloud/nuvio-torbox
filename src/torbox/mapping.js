@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from './utils.js';
+
 // Small in-memory cache: tmdbId:mediaType -> imdbId ('' = not found)
 const cache = {};
 
@@ -16,7 +18,7 @@ function fromTmdbApi(tmdbId, mediaType, tmdbApiKey) {
   const url =
     'https://api.themoviedb.org/3/' + type + '/' + tmdbId + '/external_ids?api_key=' + tmdbApiKey;
 
-  return fetch(url)
+  return fetchWithTimeout(url, null, 8000)
     .then(function (res) {
       if (!res.ok) return null;
       return res.json();
@@ -48,7 +50,7 @@ function fromWikidata(tmdbId, mediaType) {
   const query = 'SELECT ?imdb WHERE { ' + where + ' } LIMIT 1';
   const url = 'https://query.wikidata.org/sparql?format=json&query=' + encodeURIComponent(query);
 
-  return fetch(url, { headers: { 'User-Agent': 'Nuvio-TorBox/1.0' } })
+  return fetchWithTimeout(url, { headers: { 'User-Agent': 'Nuvio-TorBox/1.0' } }, 8000)
     .then(function (res) {
       if (!res.ok) return '';
       return res.json();
