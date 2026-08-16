@@ -1,6 +1,6 @@
 /**
  * torbox - Built from src/torbox/
- * Generated: 2026-08-16T17:50:50.729Z
+ * Generated: 2026-08-16T17:57:41.070Z
  */
 
 // src/torbox/mapping.js
@@ -218,8 +218,9 @@ function getTorrent(torrentId, apiKey) {
     return data.data;
   });
 }
-function waitForFiles(torrentId, maxTries, apiKey) {
-  const tries = maxTries || 5;
+function waitForFiles(torrentId, maxTries, pollMs, apiKey) {
+  const tries = maxTries || 4;
+  const interval = pollMs || 1e3;
   let attempt = 0;
   function poll() {
     attempt++;
@@ -227,7 +228,7 @@ function waitForFiles(torrentId, maxTries, apiKey) {
       if (!tor) return null;
       if (tor.files && tor.files.length) return tor;
       if (attempt >= tries) return null;
-      return sleep(1200).then(poll);
+      return sleep(interval).then(poll);
     });
   }
   return poll();
@@ -276,10 +277,12 @@ function pickVideoFile(tor, mediaType, season, episode, hintName) {
 }
 
 // src/torbox/index.js
-var MAX_CANDIDATES = 6;
-var CREATE_DELAY_MS = 350;
+var MAX_CANDIDATES = 4;
+var FILE_POLL_MS = 1e3;
+var FILE_MAX_TRIES = 4;
 function getSettings() {
-  return typeof globalThis !== "undefined" && globalThis.SCRAPER_SETTINGS || {};
+  const g = typeof globalThis !== "undefined" && globalThis || typeof global !== "undefined" && global || {};
+  return g.SCRAPER_SETTINGS || {};
 }
 function getKeys() {
   const s = getSettings();
@@ -355,7 +358,7 @@ function resolveOne(candidate, mediaType, season, episode, apiKey) {
   return createTorrent(candidate.hash, apiKey).then(function(id) {
     torrentId = id;
     if (!torrentId) return null;
-    return waitForFiles(torrentId, 6, apiKey);
+    return waitForFiles(torrentId, FILE_MAX_TRIES, FILE_POLL_MS, apiKey);
   }).then(function(tor) {
     if (!tor) return null;
     const file = pickVideoFile(tor, mediaType, season, episode, candidate.filename);
@@ -397,20 +400,17 @@ function getStreams(tmdbId, mediaType, season, episode) {
     unique.sort(sortCandidates);
     const filtered = applyPrefs(unique);
     const top = filtered.slice(0, MAX_CANDIDATES);
-    const streams = [];
-    let chain = Promise.resolve();
-    for (let i = 0; i < top.length; i++) {
-      chain = chain.then(function() {
-        return resolveOne(top[i], mediaType, season, episode, keys.torbox).then(function(s) {
-          if (s) streams.push(s);
-        }).catch(function(err) {
-          console.error("[torbox] candidate failed:", err && err.message ? err.message : err);
-        }).then(function() {
-          if (i < top.length - 1) return sleep(CREATE_DELAY_MS);
-        });
+    const attempts = top.map(function(candidate) {
+      return resolveOne(candidate, mediaType, season, episode, keys.torbox).catch(function(err) {
+        console.error("[torbox] candidate failed:", err && err.message ? err.message : err);
+        return null;
       });
-    }
-    return chain.then(function() {
+    });
+    return Promise.all(attempts).then(function(results) {
+      const streams = [];
+      for (let i = 0; i < results.length; i++) {
+        if (results[i]) streams.push(results[i]);
+      }
       return streams;
     });
   }).catch(function(err) {
