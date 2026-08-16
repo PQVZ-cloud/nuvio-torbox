@@ -1,5 +1,5 @@
 import { API_BASE } from './config.js';
-import { sleep, isVideoFile, matchEpisode } from './utils.js';
+import { sleep, isVideoFile, matchEpisode, fetchWithTimeout } from './utils.js';
 
 function apiHeaders(apiKey, extra) {
   const h = {
@@ -18,11 +18,11 @@ export function createTorrent(hash, apiKey) {
   const body =
     'magnet=' + encodeURIComponent('magnet:?xt=urn:btih:' + hash) + '&add_only_if_cached=true';
 
-  return fetch(API_BASE + '/torrents/createtorrent', {
+  return fetchWithTimeout(API_BASE + '/torrents/createtorrent', {
     method: 'POST',
     headers: apiHeaders(apiKey, { 'Content-Type': 'application/x-www-form-urlencoded' }),
     body: body
-  })
+  }, 15000)
     .then(function (res) {
       return res.json();
     })
@@ -33,9 +33,9 @@ export function createTorrent(hash, apiKey) {
 }
 
 export function getTorrent(torrentId, apiKey) {
-  return fetch(API_BASE + '/torrents/mylist?id=' + torrentId + '&bypass_cache=true', {
+  return fetchWithTimeout(API_BASE + '/torrents/mylist?id=' + torrentId + '&bypass_cache=true', {
     headers: apiHeaders(apiKey)
-  })
+  }, 10000)
     .then(function (res) {
       return res.json();
     })
