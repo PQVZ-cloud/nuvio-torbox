@@ -57,7 +57,8 @@ export function waitForFiles(torrentId, maxTries, pollMs, apiKey) {
       if (!tor) return null;
       if (tor.files && tor.files.length) return tor;
       if (attempt >= tries) return null;
-      return sleep(interval).then(poll);
+      sleep(interval);
+      return poll();
     });
   }
 
