@@ -71,7 +71,8 @@ npm start
 nuvio-torbox/
 ├── src/torbox/
 │   ├── index.js        # مدخل getStreams + onSettings (قراءة globalThis.SCRAPER_SETTINGS)
-│   ├── config.js       # مفاتيحك (متجاهل من git)
+│   ├── config.js       # تكوين عام (لا مفاتيح)
+│   ├── config.local.js # مفاتيحك للاختبار المحلي (متجاهل من git)
 │   ├── dmm.js          # مصدر DMM (توثيق challenge-response + بحث تورنتات)
 │   ├── mapping.js      # TMDB ID → IMDb ID (TMDB API ثم Wikidata)
 │   ├── sources.js      # مصدر الهاشات (Torrentio)
@@ -108,3 +109,4 @@ $env:GITHUB_TOKEN = "ghp_..."   # Fine-grained token: صاحب المستودع 
 
 - Torrentio لا يقبل أرقام TMDB أحياناً (خادم الميتادات الخاص بهم يتعطل) — لذلك البروفايدر يجرب المسارين (TMDB و IMDb) ويدمج النتائج
 - التورنتات المضافة تبقى في حساب TorBox (إدارة تلقائية مثل حذفها بعد المشاهدة غير متاحة حالياً في بيئة Nuvio)
+- **Nuvio الجديد (إعادة الكتابة KMP/QuickJS) لا يوفر مؤقتات (setTimeout/setInterval)**: البروفايدر لا يستخدم أي مؤقتات — مهلات الشبكة تتركها للـ OkHttp الأصلي (60 ثانية) والمهلة العامة للتطبيق (60 ثانية). إذا رأيت البروفايدر "يختفي" عند فتح فيلم فالتحديث الأقدم (الذي يعتمد على setTimeout) هو السبب — حدّث المستودع وأعد إضافة الرابط (أو اسحب للتحديث) وأعد إدخال المفاتيح
