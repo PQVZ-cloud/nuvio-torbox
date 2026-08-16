@@ -6,7 +6,7 @@ import {
   buildStreamUrl,
   pickVideoFile
 } from './torbox.js';
-import { parseQuality, parseFormat, sleep } from './utils.js';
+import { parseQuality, parseFormat, sleep, withTimeout } from './utils.js';
 
 const MAX_CANDIDATES = 4;
 const FILE_POLL_MS = 1000;
@@ -142,7 +142,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
     return Promise.resolve([]);
   }
 
-  return tmdbToImdb(tmdbId, mediaType, keys.tmdb)
+  const work = tmdbToImdb(tmdbId, mediaType, keys.tmdb)
     .then(function (imdbId) {
       return searchHashSources(tmdbId, mediaType, season, episode, imdbId);
     })
@@ -181,6 +181,8 @@ function getStreams(tmdbId, mediaType, season, episode) {
       console.error('[torbox] getStreams error:', err && err.message ? err.message : err);
       return [];
     });
+
+  return withTimeout(work, 25000, 'getStreams');
 }
 
 module.exports = { getStreams, onSettings };
