@@ -67,6 +67,7 @@ $files = @(
   "providers/torbox.js",
   "src/torbox/config.js",
   "src/torbox/config.example.js",
+  "src/torbox/dmm.js",
   "src/torbox/index.js",
   "src/torbox/mapping.js",
   "src/torbox/sources.js",
