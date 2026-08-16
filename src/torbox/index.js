@@ -8,11 +8,16 @@ import {
 } from './torbox.js';
 import { parseQuality, parseFormat, sleep } from './utils.js';
 
-const MAX_CANDIDATES = 6;
-const CREATE_DELAY_MS = 350;
+const MAX_CANDIDATES = 4;
+const FILE_POLL_MS = 1000;
+const FILE_MAX_TRIES = 4;
 
 function getSettings() {
-  return (typeof globalThis !== 'undefined' && globalThis.SCRAPER_SETTINGS) || {};
+  const g =
+    (typeof globalThis !== 'undefined' && globalThis) ||
+    (typeof global !== 'undefined' && global) ||
+    {};
+  return g.SCRAPER_SETTINGS || {};
 }
 
 function getKeys() {
@@ -96,7 +101,7 @@ function resolveOne(candidate, mediaType, season, episode, apiKey) {
     .then(function (id) {
       torrentId = id;
       if (!torrentId) return null;
-      return waitForFiles(torrentId, 6, apiKey);
+      return waitForFiles(torrentId, FILE_MAX_TRIES, FILE_POLL_MS, apiKey);
     })
     .then(function (tor) {
       if (!tor) return null;
@@ -156,25 +161,19 @@ function getStreams(tmdbId, mediaType, season, episode) {
 
       const filtered = applyPrefs(unique);
       const top = filtered.slice(0, MAX_CANDIDATES);
-      const streams = [];
 
-      let chain = Promise.resolve();
-      for (let i = 0; i < top.length; i++) {
-        chain = chain.then(function () {
-          return resolveOne(top[i], mediaType, season, episode, keys.torbox)
-            .then(function (s) {
-              if (s) streams.push(s);
-            })
-            .catch(function (err) {
-              console.error('[torbox] candidate failed:', err && err.message ? err.message : err);
-            })
-            .then(function () {
-              if (i < top.length - 1) return sleep(CREATE_DELAY_MS);
-            });
+      const attempts = top.map(function (candidate) {
+        return resolveOne(candidate, mediaType, season, episode, keys.torbox).catch(function (err) {
+          console.error('[torbox] candidate failed:', err && err.message ? err.message : err);
+          return null;
         });
-      }
+      });
 
-      return chain.then(function () {
+      return Promise.all(attempts).then(function (results) {
+        const streams = [];
+        for (let i = 0; i < results.length; i++) {
+          if (results[i]) streams.push(results[i]);
+        }
         return streams;
       });
     })
