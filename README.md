@@ -6,7 +6,8 @@
 
 - **Cached فقط**: `add_only_if_cached=true` — لا تحميلات، تشغيل فوري
 - **روابط Permalink**: الرابط يحوي `token` ويعيد التوجيه مباشرة لسيرفر CDN — يشتغل في أي مشغل بدون headers
-- **مصادر هاشات متعددة**: Torrentio (TMDB + IMDb) مع إمكانية إضافة مصادر أخرى
+- **مصادر هاشات متعددة**: Torrentio (TMDB + IMDb) + DMM (فهرس تورنتات موثوقة من Debrid Media Manager) — دمج وتنقية تلقائية
+- **فرز بالجودة أولاً**: 2160p > 1080p > 720p ثم seeders — أقصى دقة أولاً
 - **إعادة استخدام تلقائية**: نفس التورنت لا يُضاف مرتين (idempotent)
 - **اختيار ملف ذكي**: تطابق الحلقة للمسلسلات، وأكبر ملف فيديو للفيلم
 - **إخفاق آمن**: أي مصدر/مرشح يفشل لا يوقف الباقي
@@ -50,8 +51,13 @@ npm start
 
 ## الإضافة كـ Repository
 
-ارفع المشروع على GitHub (مستودع **خاص**!) وأضف في Nuvio:
-`https://raw.githubusercontent.com/<اسمك>/nuvio-torbox/main/manifest.json`
+ارفع المشروع على GitHub (مستودع **خاص**!) وأضف في Nuvio — **يُفضَّل jsDelivr** (أكثر استقراراً من raw.githubusercontent وقد تسقط Nuvio البروفايدر بصمت إذا فشل تحميل الكود):
+
+`https://cdn.jsdelivr.net/gh/<اسمك>/nuvio-torbox@main/manifest.json`
+
+البديل: `https://raw.githubusercontent.com/<اسمك>/nuvio-torbox/main/manifest.json`
+
+> **إذا اختفى البروفايدر من القائمة**: هذا سلوك Nuvio عند فشل تحميل ملف الكود (شبكة/CDN). احذف المستودع وأعد إضافته برابط jsDelivr، ثم أعد إدخال المفاتيح (الإعدادات تُحفظ لكل رابط مستودع).
 
 ## ⚠️ أمان
 
@@ -66,6 +72,7 @@ nuvio-torbox/
 ├── src/torbox/
 │   ├── index.js        # مدخل getStreams + onSettings (قراءة globalThis.SCRAPER_SETTINGS)
 │   ├── config.js       # مفاتيحك (متجاهل من git)
+│   ├── dmm.js          # مصدر DMM (توثيق challenge-response + بحث تورنتات)
 │   ├── mapping.js      # TMDB ID → IMDb ID (TMDB API ثم Wikidata)
 │   ├── sources.js      # مصدر الهاشات (Torrentio)
 │   ├── torbox.js       # عميل API تبع TorBox (create/mylist/requestdl)
@@ -95,7 +102,7 @@ $env:GITHUB_TOKEN = "ghp_..."   # Fine-grained token: صاحب المستودع 
 
 - السكربت **يفحص الملفات عن المفاتيح ويوقف** إذا وجد أي سر قبل الرفع
 - بعد الرفع: **ألغِ التوكن** من إعدادات GitHub
-- أضف المستودع في Nuvio: `https://raw.githubusercontent.com/<اسمك>/nuvio-torbox/main/manifest.json`
+- أضف المستودع في Nuvio (يُفضَّل jsDelivr): `https://cdn.jsdelivr.net/gh/<اسمك>/nuvio-torbox@main/manifest.json`
 
 ## ملاحظات معروفة
 
