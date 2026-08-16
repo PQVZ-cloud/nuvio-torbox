@@ -6,7 +6,7 @@ import {
   buildStreamUrl,
   pickVideoFile
 } from './torbox.js';
-import { parseQuality, parseFormat, sleep, withTimeout } from './utils.js';
+import { parseQuality, parseFormat } from './utils.js';
 
 const MAX_CANDIDATES = 8;
 const FILE_POLL_MS = 1000;
@@ -185,7 +185,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
       return [];
     });
 
-  return withTimeout(work, 25000, 'getStreams');
+  return work;
 }
 
 module.exports = { getStreams, onSettings };
