@@ -46,8 +46,9 @@ export function getTorrent(torrentId, apiKey) {
 }
 
 // Waits until the torrent's file list is available (cached torrents are near-instant).
-export function waitForFiles(torrentId, maxTries, apiKey) {
-  const tries = maxTries || 5;
+export function waitForFiles(torrentId, maxTries, pollMs, apiKey) {
+  const tries = maxTries || 4;
+  const interval = pollMs || 1000;
   let attempt = 0;
 
   function poll() {
@@ -56,7 +57,7 @@ export function waitForFiles(torrentId, maxTries, apiKey) {
       if (!tor) return null;
       if (tor.files && tor.files.length) return tor;
       if (attempt >= tries) return null;
-      return sleep(1200).then(poll);
+      return sleep(interval).then(poll);
     });
   }
 
