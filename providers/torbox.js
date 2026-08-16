@@ -1,6 +1,6 @@
 /**
  * torbox - Built from src/torbox/
- * Generated: 2026-08-16T16:36:13.722Z
+ * Generated: 2026-08-16T17:50:50.729Z
  */
 
 // src/torbox/mapping.js
@@ -92,7 +92,7 @@ function parseFormat(name) {
   }
   return "mp4";
 }
-var EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]+/u;
+var EMOJI_RE = /[\u2600-\u27BF\uFE0F\u200D]|[\uD83C-\uDBFF][\uDC00-\uDFFF]+/g;
 function parseTorrentioTitle(title) {
   let seeders = 0;
   let sizeBytes = 0;
@@ -418,9 +418,4 @@ function getStreams(tmdbId, mediaType, season, episode) {
     return [];
   });
 }
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = { getStreams, onSettings };
-} else {
-  global.getStreams = getStreams;
-  global.onSettings = onSettings;
-}
+module.exports = { getStreams, onSettings };
