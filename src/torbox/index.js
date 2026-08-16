@@ -8,7 +8,7 @@ import {
 } from './torbox.js';
 import { parseQuality, parseFormat, sleep, withTimeout } from './utils.js';
 
-const MAX_CANDIDATES = 4;
+const MAX_CANDIDATES = 8;
 const FILE_POLL_MS = 1000;
 const FILE_MAX_TRIES = 4;
 
@@ -90,6 +90,9 @@ function onSettings() {
 }
 
 function sortCandidates(a, b) {
+  const qa = a.quality || 0;
+  const qb = b.quality || 0;
+  if (qb !== qa) return qb - qa;
   if (b.seeders !== a.seeders) return b.seeders - a.seeders;
   return (b.sizeBytes || 0) - (a.sizeBytes || 0);
 }
